@@ -1,0 +1,56 @@
+{% extends theme("user/profile_layout.html") %}
+{%- from theme("_macros/pagination.html") import render_pagination %}
+
+{% block breadcrumb %}
+<ol class="breadcrumb flaskbb-breadcrumb bg-light">
+    <li class="breadcrumb-item"><a href="{{ url_for('forum.index') }}">{% trans %}Forum{% endtrans %}</a></li>
+    <li class="breadcrumb-item"><a href="{{ user.url }}">{{ user.username }}</a></li>
+    <li class="breadcrumb-item active">{{ _("Liked posts") }}</li>
+</ol>
+{% endblock %}
+
+{% block profile_content %}
+<div class="col-12 profile-content">
+
+    {% for post in posts.items %}
+    <div class="card page mb-3">
+        <div class="card-header page-header topic-header fw-normal">
+            {% trans trimmed
+                post_url=post.url,
+                topic_title=post.topic.title,
+                forum_url=post.topic.forum.url,
+                forum_title=post.topic.forum.title
+            %}
+                <strong><a href="{{ post_url }}">{{ topic_title }}</a></strong>
+                in forum <a href="{{ forum_url }}">{{ forum_title }}</a>
+            {% endtrans %}
+        </div>
+        <div class="card-body page-body topic-content">
+            <div class="col-12 ps-3">
+                <div class="topic-created">
+                    {{ post.date_created|format_datetime }}
+                </div>
+                <div class="topic-content">
+                    {{ post.content|markup }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert-message alert-message-info" role="alert">
+                {{ _("No posts liked yet") }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if posts.items %}
+    <div class="col-12 controls-col">
+        {{ render_pagination(posts, url_for('like.liked_posts', username=user.username)) }}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

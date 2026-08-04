@@ -1,4 +1,0 @@
-graft vanity/templates
-graft vanity/migrations
-
-global-exclude *.pyc __pycache__ .keep
