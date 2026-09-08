@@ -8,16 +8,18 @@ The model for a user's like on a post.
 :license: BSD License, see LICENSE for more details.
 """
 
+from typing import TYPE_CHECKING, cast
+
 from flaskbb.extensions import db
 from flaskbb.forum.models import Post
 from flaskbb.user.models import User
-from flaskbb.utils.database import CRUDMixin
-from sqlalchemy import ForeignKey, Integer, event, update
+from flaskbb.utils.database import BaseModel
+from sqlalchemy import Connection, ForeignKey, Integer, Table, event, update
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
 
 
-class PostLike(db.Model, CRUDMixin):
+class PostLike(BaseModel):
     __tablename__ = "like_association"
 
     post_id: Mapped[int] = mapped_column(
@@ -47,7 +49,7 @@ class PostLike(db.Model, CRUDMixin):
     )
 
 
-Post.likers = association_proxy(  # pyright: ignore
+Post.likers = association_proxy(
     "liked_by_users",
     "user",
     creator=lambda user: PostLike(user=user),  # pyright: ignore
@@ -63,13 +65,28 @@ Post.likers = association_proxy(  # pyright: ignore
 # Table and adds the property to User's mapper - the same monkey-patching
 # this plugin already does with Post.likers above. like/migrations adds
 # the actual DB columns.
-User.likes_given = mapped_column(Integer, default=0, server_default="0", nullable=False)  # pyright: ignore
-User.likes_received = mapped_column(  # pyright: ignore
+User.likes_given = mapped_column(Integer, default=0, server_default="0", nullable=False)
+User.likes_received = mapped_column(
     Integer, default=0, server_default="0", nullable=False
 )
 
 
-def _apply_delta(connection, like: PostLike, delta: int):
+if TYPE_CHECKING:
+
+    class LikeUser(User):
+        """A ``User`` with the two counters added above. They are added at
+        import time, so a type checker cannot see them on ``User`` itself -
+        cast to this to read or write them.
+        """
+
+        likes_given: int = 0
+        likes_received: int = 0
+
+else:
+    LikeUser = User
+
+
+def _apply_delta(connection: Connection, like: PostLike, delta: int) -> None:
     """Two people liking the same post at once can't lose an increment. Runs
     on the flush's connection, in the same transaction as the row itself.
 
@@ -79,9 +96,10 @@ def _apply_delta(connection, like: PostLike, delta: int):
     session. If the post has no author (guest post, or the author's row went
     first), the subquery is NULL and the UPDATE matches nothing.
     """
-    users, posts = User.__table__, Post.__table__  # pyright: ignore
+    users = cast(Table, User.__table__)
+    posts = cast(Table, Post.__table__)
     author_id = (
-        db.select(posts.c.user_id).where(posts.c.id == like.post_id).scalar_subquery()  # pyright: ignore
+        db.select(posts.c.user_id).where(posts.c.id == like.post_id).scalar_subquery()
     )
     connection.execute(
         update(users)
@@ -96,12 +114,16 @@ def _apply_delta(connection, like: PostLike, delta: int):
 
 
 @event.listens_for(PostLike, "after_insert")
-def _increment_like_counts(mapper, connection, target):
+def _increment_like_counts(
+    mapper: Mapper[PostLike], connection: Connection, target: PostLike
+) -> None:
     _apply_delta(connection, target, 1)
 
 
 @event.listens_for(PostLike, "after_delete")
-def _decrement_like_counts(mapper, connection, target):
+def _decrement_like_counts(
+    mapper: Mapper[PostLike], connection: Connection, target: PostLike
+) -> None:
     # Keeps the counters honest on paths this plugin never sees: deleting a
     # post or a user cascades through the ORM relationships above, which
     # deletes each PostLike individually and fires this. A raw SQL delete

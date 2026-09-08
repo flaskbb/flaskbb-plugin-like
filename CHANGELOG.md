@@ -20,6 +20,7 @@ Unreleased
   read-modify-write in the view, so cascading post/user deletes stay
   accounted for and concurrent likes can't lose a count. Adds
   `recalculate_like_counts()` to resync a user whose counters drifted.
+* Like and unlike without reloading the topic page
 * Modernize the plugin for the current pluggy hook / settings registry
   API: explicit `hookimpl` markers, a `SettingGroup` (adds an
   `ALLOW_SELF_LIKE` setting), and a squashed migration with

@@ -1,34 +1,41 @@
 {% set likes = post.likers | length %}
-<a href="#" data-bs-toggle="modal" data-bs-target="#likers-post-{{ post.id }}">
-    <small>{{ _("%(count)s like%(plural)s", count=likes, plural="" if likes == 1 else "s") }}</small>
-</a>
-<div class="modal fade" id="likers-post-{{ post.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{{ _("Users who liked this post") }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                {% for liker in post.likers %}
-                <div><a href="{{ liker.url }}">{{ liker.username }}</a></div>
-                {% else %}
-                <div>{{ _("No likes yet") }}</div>
-                {% endfor %}
+<div class="like-widget d-inline" data-post-id="{{ post.id }}">
+    <a href="#" data-bs-toggle="modal" data-bs-target="#likers-post-{{ post.id }}">
+        <small>{{ _("%(count)s like%(plural)s", count=likes, plural="" if likes == 1 else "s") }}</small>
+    </a>
+    <div class="modal fade" id="likers-post-{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ _("Users who liked this post") }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% for liker in post.likers %}
+                    <div><a href="{{ liker.url }}">{{ liker.username }}</a></div>
+                    {% else %}
+                    <div>{{ _("No likes yet") }}</div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-{% if can_like %}
-<form class="d-inline"
-      method="post"
-      action="{{ url_for('like.unlike_post' if already_liked else 'like.like_post', post_id=post.id) }}">
-    {{ form.hidden_tag() }}
-    {% if already_liked %}
-    <button type="submit" class="btn btn-icon fas fa-heart text-red" data-bs-toggle="tooltip" title="{{ _('Withdraw like') }}"></button>
-    {% else %}
-    <button type="submit" class="btn btn-icon far fa-heart text-red" data-bs-toggle="tooltip" title="{{ _('Like') }}"></button>
+    {% if can_like %}
+    {# No data-bs-toggle="tooltip" here: aurora instantiates its tooltips once
+       on page load and doesn't expose bootstrap to plugin scripts, so a button
+       swapped in by like.js would end up without one. A plain title attribute
+       survives the swap. #}
+    <form class="d-inline"
+          data-like-form
+          method="post"
+          action="{{ url_for('like.unlike_post' if already_liked else 'like.like_post', post_id=post.id) }}">
+        {{ form.hidden_tag() }}
+        {% if already_liked %}
+        <button type="submit" class="btn btn-icon fas fa-heart text-red" title="{{ _('Withdraw like') }}" aria-label="{{ _('Withdraw like') }}"></button>
+        {% else %}
+        <button type="submit" class="btn btn-icon far fa-heart text-red" title="{{ _('Like') }}" aria-label="{{ _('Like') }}"></button>
+        {% endif %}
+    </form>
     {% endif %}
-</form>
-{% endif %}
+</div>

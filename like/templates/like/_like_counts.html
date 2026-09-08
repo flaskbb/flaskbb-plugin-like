@@ -1,2 +1,4 @@
-<div>{{ _("Likes given") }}: {{ likes_given }}</div>
-<div>{{ _("Likes received") }}: {{ likes_received }}</div>
+<div class="like-counts" data-user-id="{{ user.id }}">
+    <div>{{ _("Likes given") }}: <span class="like-counts-given">{{ likes_given }}</span></div>
+    <div>{{ _("Likes received") }}: <span class="like-counts-received">{{ likes_received }}</span></div>
+</div>

@@ -8,13 +8,15 @@ Helpers for liking/unliking a post and for counting a user's likes.
 :license: BSD License, see LICENSE for more details.
 """
 
-from flaskbb.core.settings import flaskbb_config
+from typing import cast
+
+from flaskbb.settings import flaskbb_config
 from flaskbb.extensions import db
 from flaskbb.forum.models import Post
 from flaskbb.user.models import User
 from sqlalchemy import func
 
-from .models import PostLike
+from .models import LikeUser, PostLike
 
 DEFAULT_ALLOW_SELF_LIKE = False
 
@@ -60,11 +62,11 @@ def has_liked(user: User, post: Post) -> bool:
 
 
 def likes_given_count(user: User) -> int:
-    return user.likes_given
+    return cast(LikeUser, user).likes_given
 
 
 def likes_received_count(user: User) -> int:
-    return user.likes_received
+    return cast(LikeUser, user).likes_received
 
 
 def recalculate_like_counts(user: User) -> User:
@@ -75,10 +77,11 @@ def recalculate_like_counts(user: User) -> User:
     """
     # PostLike has no `id` - its primary key is (post_id, user_id) - so
     # CRUDMixin.count()'s default `column=cls.id` doesn't exist here.
-    user.likes_given = PostLike.count(
+    counts = cast(LikeUser, user)
+    counts.likes_given = PostLike.count(
         PostLike.user_id == user.id, column=PostLike.post_id
     )
-    user.likes_received = db.session.execute(
+    counts.likes_received = db.session.execute(
         db.select(func.count(PostLike.post_id))
         .join(Post, PostLike.post_id == Post.id)
         .where(Post.user_id == user.id)

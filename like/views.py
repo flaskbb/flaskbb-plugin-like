@@ -8,11 +8,11 @@ The views for liking/unliking a post and for a user's liked-posts page.
 :license: BSD License, see LICENSE for more details.
 """
 
-from flask import Blueprint, abort, flash, redirect, request
+from flask import Blueprint, abort, flash, jsonify, redirect, request
 from flask.views import MethodView
 from flask_babelplus import gettext as _
 from flask_login import current_user, login_required
-from flaskbb.core.settings import flaskbb_config
+from flaskbb.settings import flaskbb_config
 from flaskbb.extensions import db
 from flaskbb.forum.models import Forum, Post, Topic
 from flaskbb.user.models import Group, User
@@ -20,9 +20,55 @@ from flaskbb.utils.helpers import real, register_view, render_template
 
 from .forms import LikeActionForm
 from .models import PostLike
-from .utils import can_like_post, has_liked, like_post, unlike_post
+from .utils import (
+    can_like_post,
+    has_liked,
+    like_post,
+    likes_given_count,
+    likes_received_count,
+    unlike_post,
+)
 
-like_bp = Blueprint("like", __name__, template_folder="templates")
+like_bp = Blueprint(
+    "like", __name__, template_folder="templates", static_folder="static"
+)
+
+
+def _is_ajax() -> bool:
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def _counts_for(user: User) -> dict[str, int]:
+    return {
+        "user_id": user.id,
+        "given": likes_given_count(user),
+        "received": likes_received_count(user),
+    }
+
+
+def _like_state(post: Post, user: User):
+    """The re-rendered like widget plus the counters the (un)like changed.
+
+    Both counters are read after ``like_post``/``unlike_post`` committed, so
+    the values the after_insert/after_delete events wrote are already visible.
+    They are sent as numbers rather than markup because they live in the post
+    author sidebar - a different part of the page from the widget, and
+    possibly in several places at once if the same user has more than one post
+    on it.
+    """
+    counts = [_counts_for(user)]
+    if post.user is not None and post.user != user:
+        counts.append(_counts_for(post.user))
+    return jsonify(
+        widget=render_template(
+            "like/_like_button.html",
+            post=post,
+            can_like=can_like_post(user, post),
+            already_liked=has_liked(user, post),
+            form=LikeActionForm(),
+        ),
+        counts=counts,
+    )
 
 
 class LikePost(MethodView):
@@ -41,6 +87,8 @@ class LikePost(MethodView):
             abort(403)
 
         like_post(user, post)
+        if _is_ajax():
+            return _like_state(post, user)
         return redirect(post.url)
 
 
@@ -60,6 +108,8 @@ class UnlikePost(MethodView):
             abort(403)
 
         unlike_post(user, post)
+        if _is_ajax():
+            return _like_state(post, user)
         return redirect(post.url)
 
 

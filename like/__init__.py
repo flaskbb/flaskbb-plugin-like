@@ -14,9 +14,10 @@ import os
 from flask import Flask
 from flask_babelplus import gettext as _
 from flask_login import current_user
-from flaskbb.core.settings import BoolSetting, SettingGroup
+from flaskbb.settings import BoolSetting, SettingGroup
 from flaskbb.display.navigation import NavigationLink
 from flaskbb.forum.models import Post
+from flaskbb.user.models import User
 from flaskbb.utils.helpers import real, render_template
 from pluggy import HookimplMarker
 
@@ -87,16 +88,25 @@ def flaskbb_tpl_post_menu_before(post: Post):
 
 
 @hookimpl
-def flaskbb_tpl_post_author_info_after(user, post):
+def flaskbb_tpl_post_author_info_after(user: User | None, post: Post):
+    if user is None:
+        return None
+
     return render_template(
         "like/_like_counts.html",
+        user=user,
         likes_given=likes_given_count(user),
         likes_received=likes_received_count(user),
     )
 
 
 @hookimpl
-def flaskbb_tpl_profile_sidebar_links(user):
+def flaskbb_tpl_scripts():
+    return render_template("like/_scripts.html")
+
+
+@hookimpl
+def flaskbb_tpl_profile_sidebar_links(user: User):
     return NavigationLink(
         endpoint="like.liked_posts",
         name=_("Liked posts"),

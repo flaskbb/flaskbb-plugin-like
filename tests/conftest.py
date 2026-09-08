@@ -1,5 +1,5 @@
 import pytest
-from flaskbb.core.settings import setting_registry
+from flaskbb.settings import setting_registry
 from flaskbb.forum.models import Post
 from tests.fixtures.app import *
 from tests.fixtures.forum import *
