@@ -82,9 +82,7 @@ def test_like_post_rejects_a_second_like(application, liked_post, moderator_user
 
 def test_unlike_post_requires_login(application, liked_post):
     view = UnlikePost.as_view("unlike")
-    with application.test_request_context(
-        method="POST", path=f"/like/{liked_post.id}/unlike"
-    ):
+    with application.test_request_context(method="POST", path=f"/like/{liked_post.id}/unlike"):
         resp = view(post_id=liked_post.id)
     assert resp.status_code == 302
     assert PostLike.count(column=PostLike.post_id) == 1
@@ -102,9 +100,7 @@ def test_unlike_post_rejects_when_not_liked(application, topic, moderator_user):
         _unlike(application, topic.first_post, moderator_user)
 
 
-def test_like_post_ajax_returns_the_updated_widget(
-    application, topic, user, moderator_user
-):
+def test_like_post_ajax_returns_the_updated_widget(application, topic, user, moderator_user):
     post = topic.first_post
     resp = _like(application, post, moderator_user, headers=AJAX)
 
@@ -120,9 +116,7 @@ def test_like_post_ajax_returns_the_updated_widget(
     assert counts[user.id]["received"] == 1
 
 
-def test_unlike_post_ajax_returns_the_updated_widget(
-    application, liked_post, user, moderator_user
-):
+def test_unlike_post_ajax_returns_the_updated_widget(application, liked_post, user, moderator_user):
     resp = _unlike(application, liked_post, moderator_user, headers=AJAX)
 
     assert resp.status_code == 200
@@ -143,9 +137,7 @@ def test_liked_posts_lists_only_that_users_likes(
     PostLike(post_id=liked.id, user_id=moderator_user.id).save()
 
     view = LikedPosts.as_view("liked_posts")
-    with application.test_request_context(
-        path=f"/like/{moderator_user.username}/liked-posts"
-    ):
+    with application.test_request_context(path=f"/like/{moderator_user.username}/liked-posts"):
         login_user(admin_user)
         try:
             resp = view(username=moderator_user.username)

@@ -1,6 +1,6 @@
-from flaskbb.settings import flaskbb_config
 from flaskbb.extensions import db
 from flaskbb.forum.models import Forum, Post, Topic
+from flaskbb.settings import flaskbb_config
 from sqlalchemy import event
 
 from like.models import PostLike
@@ -42,16 +42,12 @@ def test_can_like_post_rejects_user_outside_the_forums_groups(
     member_only_forum.save(groups=[default_groups[3]])
 
     other_topic = Topic(title="Members only topic")
-    other_topic.save(
-        forum=member_only_forum, user=user, post=Post(content="Members only content")
-    )
+    other_topic.save(forum=member_only_forum, user=user, post=Post(content="Members only content"))
 
     assert can_like_post(moderator_user, other_topic.first_post) is False
 
 
-def test_can_like_post_allows_self_like_when_setting_enabled(
-    topic, user, default_settings
-):
+def test_can_like_post_allows_self_like_when_setting_enabled(topic, user, default_settings):
     original = flaskbb_config["LIKE_ALLOW_SELF_LIKE"]
     flaskbb_config["LIKE_ALLOW_SELF_LIKE"] = True
     try:
@@ -113,9 +109,7 @@ def test_unlike_post_decrements_the_counters(liked_post, user, moderator_user):
     assert likes_received_count(user) == 0
 
 
-def test_deleting_a_liked_post_decrements_the_counters(
-    liked_post, user, moderator_user
-):
+def test_deleting_a_liked_post_decrements_the_counters(liked_post, user, moderator_user):
     """The cascade from Post -> PostLike goes through the ORM, so the
     counters have to follow it without like_post/unlike_post involved."""
     assert likes_given_count(moderator_user) == 1

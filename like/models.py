@@ -8,15 +8,15 @@ The model for a user's like on a post.
 :license: BSD License, see LICENSE for more details.
 """
 
-from typing import TYPE_CHECKING, cast
+from typing import cast, TYPE_CHECKING
 
 from flaskbb.extensions import db
 from flaskbb.forum.models import Post
 from flaskbb.user.models import User
 from flaskbb.utils.database import BaseModel
-from sqlalchemy import Connection, ForeignKey, Integer, Table, event, update
+from sqlalchemy import Connection, event, ForeignKey, Integer, Table, update
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, Mapper, relationship
 
 
 class PostLike(BaseModel):
@@ -38,9 +38,7 @@ class PostLike(BaseModel):
     # query this plugin doesn't own.
     post: Mapped["Post"] = relationship(
         "Post",
-        backref=db.backref(
-            "liked_by_users", lazy="selectin", cascade="all, delete-orphan"
-        ),
+        backref=db.backref("liked_by_users", lazy="selectin", cascade="all, delete-orphan"),
     )
     user: Mapped["User"] = relationship(
         "User",
@@ -66,9 +64,7 @@ Post.likers = association_proxy(
 # this plugin already does with Post.likers above. like/migrations adds
 # the actual DB columns.
 User.likes_given = mapped_column(Integer, default=0, server_default="0", nullable=False)
-User.likes_received = mapped_column(
-    Integer, default=0, server_default="0", nullable=False
-)
+User.likes_received = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
 
 if TYPE_CHECKING:
@@ -98,9 +94,7 @@ def _apply_delta(connection: Connection, like: PostLike, delta: int) -> None:
     """
     users = cast(Table, User.__table__)
     posts = cast(Table, Post.__table__)
-    author_id = (
-        db.select(posts.c.user_id).where(posts.c.id == like.post_id).scalar_subquery()
-    )
+    author_id = db.select(posts.c.user_id).where(posts.c.id == like.post_id).scalar_subquery()
     connection.execute(
         update(users)
         .where(users.c.id == like.user_id)

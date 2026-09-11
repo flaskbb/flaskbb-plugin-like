@@ -14,17 +14,17 @@ import os
 from flask import Flask
 from flask_babelplus import gettext as _
 from flask_login import current_user
-from flaskbb.settings import BoolSetting, SettingGroup
 from flaskbb.display.navigation import NavigationLink
 from flaskbb.forum.models import Post
+from flaskbb.settings import BoolSetting, SettingGroup
 from flaskbb.user.models import User
 from flaskbb.utils.helpers import real, render_template
 from pluggy import HookimplMarker
 
 from .forms import LikeActionForm
 from .utils import (
-    DEFAULT_ALLOW_SELF_LIKE,
     can_like_post,
+    DEFAULT_ALLOW_SELF_LIKE,
     has_liked,
     likes_given_count,
     likes_received_count,
@@ -48,9 +48,7 @@ def flaskbb_load_translations():
 
 @hookimpl
 def flaskbb_load_blueprints(app: Flask):
-    app.register_blueprint(
-        like_bp, url_prefix=app.config.get("PLUGIN_LIKE_URL_PREFIX", "/like")
-    )
+    app.register_blueprint(like_bp, url_prefix=app.config.get("PLUGIN_LIKE_URL_PREFIX", "/like"))
 
 
 SETTINGS = SettingGroup(

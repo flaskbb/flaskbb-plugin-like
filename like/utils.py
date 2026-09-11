@@ -10,9 +10,9 @@ Helpers for liking/unliking a post and for counting a user's likes.
 
 from typing import cast
 
-from flaskbb.settings import flaskbb_config
 from flaskbb.extensions import db
 from flaskbb.forum.models import Post
+from flaskbb.settings import flaskbb_config
 from flaskbb.user.models import User
 from sqlalchemy import func
 
@@ -78,9 +78,7 @@ def recalculate_like_counts(user: User) -> User:
     # PostLike has no `id` - its primary key is (post_id, user_id) - so
     # CRUDMixin.count()'s default `column=cls.id` doesn't exist here.
     counts = cast(LikeUser, user)
-    counts.likes_given = PostLike.count(
-        PostLike.user_id == user.id, column=PostLike.post_id
-    )
+    counts.likes_given = PostLike.count(PostLike.user_id == user.id, column=PostLike.post_id)
     counts.likes_received = db.session.execute(
         db.select(func.count(PostLike.post_id))
         .join(Post, PostLike.post_id == Post.id)

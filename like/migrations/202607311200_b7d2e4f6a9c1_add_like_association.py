@@ -37,9 +37,7 @@ def upgrade():
                 name=op.f("fk_like_association_user_id_users"),
                 ondelete="CASCADE",
             ),
-            sa.PrimaryKeyConstraint(
-                "post_id", "user_id", name=op.f("pk_like_association")
-            ),
+            sa.PrimaryKeyConstraint("post_id", "user_id", name=op.f("pk_like_association")),
         )
 
     # a fresh install that went through db.create_all() already has them
@@ -47,15 +45,11 @@ def upgrade():
     with op.batch_alter_table("users", schema=None) as batch_op:
         if "likes_given" not in user_columns:
             batch_op.add_column(
-                sa.Column(
-                    "likes_given", sa.Integer(), nullable=False, server_default="0"
-                )
+                sa.Column("likes_given", sa.Integer(), nullable=False, server_default="0")
             )
         if "likes_received" not in user_columns:
             batch_op.add_column(
-                sa.Column(
-                    "likes_received", sa.Integer(), nullable=False, server_default="0"
-                )
+                sa.Column("likes_received", sa.Integer(), nullable=False, server_default="0")
             )
 
     op.execute(

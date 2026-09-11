@@ -8,13 +8,13 @@ The views for liking/unliking a post and for a user's liked-posts page.
 :license: BSD License, see LICENSE for more details.
 """
 
-from flask import Blueprint, abort, flash, jsonify, redirect, request
+from flask import abort, Blueprint, flash, jsonify, redirect, request
 from flask.views import MethodView
 from flask_babelplus import gettext as _
 from flask_login import current_user, login_required
-from flaskbb.settings import flaskbb_config
 from flaskbb.extensions import db
 from flaskbb.forum.models import Forum, Post, Topic
+from flaskbb.settings import flaskbb_config
 from flaskbb.user.models import Group, User
 from flaskbb.utils.helpers import real, register_view, render_template
 
@@ -29,9 +29,7 @@ from .utils import (
     unlike_post,
 )
 
-like_bp = Blueprint(
-    "like", __name__, template_folder="templates", static_folder="static"
-)
+like_bp = Blueprint("like", __name__, template_folder="templates", static_folder="static")
 
 
 def _is_ajax() -> bool:
@@ -135,9 +133,7 @@ class LikedPosts(MethodView):
         return render_template("like/liked_posts.html", user=user, posts=posts)
 
 
-register_view(
-    like_bp, routes=["/<int:post_id>/like"], view_func=LikePost.as_view("like_post")
-)
+register_view(like_bp, routes=["/<int:post_id>/like"], view_func=LikePost.as_view("like_post"))
 register_view(
     like_bp,
     routes=["/<int:post_id>/unlike"],
