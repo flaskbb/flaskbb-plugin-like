@@ -1,22 +1,19 @@
 {
-  // Install LSP-json to get validation and autocompletion in this file.
   "venvPath": ".",
   "venv": ".venv",
-  "reportGeneralTypeIssues": "none",
-  "exclude": [
-    "**/node_modules",
-    "**/resources",
-    "**/__pycache__"
-  ],
-  "defineConstant": {
-    "DEBUG": true
-  },
+  "include": ["like"],
+  "exclude": ["**/node_modules", "**/resources", "**/__pycache__", "**/docs", "like/migrations"],
+  "typeCheckingMode": "standard",
+  "pythonVersion": "3.12",
+  "defineConstant": { "DEBUG": true },
   "reportIgnoreCommentWithoutRule": false,
   "reportMissingImports": "error",
   "reportMissingTypeStubs": false,
   "reportUnusedCallResult": false,
   "reportUnannotatedClassAttribute": false,
   "reportUnusedParameter": false,
+  "reportImplicitStringConcatenation": false,
   "reportAny": false,
-  "reportExplicitAny": false
+  "reportExplicitAny": false,
+  "reportMissingSuperCall": false
 }

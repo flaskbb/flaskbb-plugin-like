@@ -1,23 +1,11 @@
 import pytest
-from flaskbb.settings import setting_registry
 from flaskbb.forum.models import Post
 from tests.fixtures.app import *
 from tests.fixtures.forum import *
 from tests.fixtures.user import *
 
-from like import SETTINGS
 from like.models import PostLike
 from like.views import like_bp
-
-# Normally flaskbb_load_setting_groups is called by pluggy during
-# create_app(), which only happens if `like` is entry-point installed (see
-# README.md). Registering it here directly, once per test session, gets
-# LIKE_ALLOW_SELF_LIKE into the registry for default_settings/flaskbb_config
-# without requiring that install.
-try:
-    setting_registry.register_group(SETTINGS, is_plugin=True)
-except ValueError:
-    pass
 
 
 @pytest.fixture(scope="package", autouse=True)
