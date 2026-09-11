@@ -1,9 +1,11 @@
 import pytest
+from flaskbb.extensions import pluggy
 from flaskbb.forum.models import Post
 from tests.fixtures.app import *
 from tests.fixtures.forum import *
 from tests.fixtures.user import *
 
+import like
 from like.models import PostLike
 from like.views import like_bp
 
@@ -16,6 +18,8 @@ def _register_like_blueprint(application):
     exist) without requiring an entry-point install."""
     if "like" not in application.blueprints:
         application.register_blueprint(like_bp, url_prefix="/like")
+    if not pluggy.is_registered(like):
+        pluggy.register(like, name="like")
 
 
 def _reply(topic, user):

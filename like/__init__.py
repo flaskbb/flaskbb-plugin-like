@@ -104,10 +104,12 @@ def flaskbb_tpl_scripts():
 
 
 @hookimpl
-def flaskbb_tpl_profile_sidebar_links(user: User):
-    return NavigationLink(
-        endpoint="like.liked_posts",
-        name=_("Liked posts"),
-        icon="fa fa-heart",
-        urlforkwargs={"username": user.username},
-    )
+def flaskbb_tpl_profile_links(user: User):
+    return [
+        NavigationLink(
+            endpoint="like.liked_posts",
+            name=_("Liked posts"),
+            icon="fa fa-heart",
+            urlforkwargs={"username": user.username},
+        )
+    ]
