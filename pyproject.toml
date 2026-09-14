@@ -160,7 +160,6 @@ known-third-party = ["tests"]
 branch = true
 source = ["like", "tests"]
 omit = [
-    "like/static/*",
     "like/templates/*",
     "like/migrations/*"
 ]

@@ -1,4 +1,4 @@
-<div class="like-counts" data-user-id="{{ user.id }}">
+<div class="like-counts" data-user-id="{{ user.id }}"{% if oob %} hx-swap-oob="outerHTML:.like-counts[data-user-id='{{ user.id }}']"{% endif %}>
     <div>{{ _("Likes given") }}: <span class="like-counts-given">{{ likes_given }}</span></div>
     <div>{{ _("Likes received") }}: <span class="like-counts-received">{{ likes_received }}</span></div>
 </div>

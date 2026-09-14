@@ -99,11 +99,6 @@ def flaskbb_tpl_post_author_info_after(user: User | None, post: Post):
 
 
 @hookimpl
-def flaskbb_tpl_scripts():
-    return render_template("like/_scripts.html")
-
-
-@hookimpl
 def flaskbb_tpl_profile_links(user: User):
     return [
         NavigationLink(

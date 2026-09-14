@@ -18,7 +18,7 @@ depends_on = "8ad96e49dc6"  # flaskbb core init migration - creates posts/users
 
 def upgrade():
     con = op.get_bind()
-    inspector = sa.inspect(con.engine)
+    inspector = sa.inspect(con)
 
     if not inspector.has_table("like_association"):
         op.create_table(

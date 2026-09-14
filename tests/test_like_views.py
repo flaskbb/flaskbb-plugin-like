@@ -1,3 +1,4 @@
+import re
 from contextlib import contextmanager
 
 import pytest
@@ -5,6 +6,7 @@ from flask_login import login_user, logout_user
 from flaskbb.forum.models import Post
 from werkzeug.exceptions import Forbidden
 
+import like
 from like.models import PostLike
 from like.views import LikedPosts, LikePost, UnlikePost
 
@@ -24,7 +26,21 @@ def _csrf_disabled(application):
         application.config["WTF_CSRF_ENABLED"] = original
 
 
-AJAX = {"X-Requested-With": "XMLHttpRequest"}
+HTMX = {"HX-Request": "true"}
+
+
+def _counts(html, user_id):
+    """The out-of-band counts block for ``user_id`` in an htmx response, as
+    ``(given, received)``."""
+    match = re.search(
+        rf"data-user-id=\"{user_id}\" "
+        rf"hx-swap-oob=\"outerHTML:\.like-counts\[data-user-id='{user_id}'\]\">"
+        r".*?like-counts-given\">(\d+)<.*?like-counts-received\">(\d+)<",
+        html,
+        re.S,
+    )
+    assert match is not None
+    return int(match.group(1)), int(match.group(2))
 
 
 def _post(application, view_cls, endpoint_name, post_id, user, headers=None):
@@ -100,33 +116,66 @@ def test_unlike_post_rejects_when_not_liked(application, topic, moderator_user):
         _unlike(application, topic.first_post, moderator_user)
 
 
-def test_like_post_ajax_returns_the_updated_widget(application, topic, user, moderator_user):
+def test_like_post_htmx_returns_the_updated_widget(application, topic, user, moderator_user):
     post = topic.first_post
-    resp = _like(application, post, moderator_user, headers=AJAX)
+    resp = _like(application, post, moderator_user, headers=HTMX)
 
-    assert resp.status_code == 200
-    data = resp.get_json()
     # The widget comes back in its unliked -> liked state: the button now
     # posts to unlike, and the count went up.
-    assert f"/like/{post.id}/unlike" in data["widget"]
-    assert "1 like" in data["widget"]
-
-    counts = {entry["user_id"]: entry for entry in data["counts"]}
-    assert counts[moderator_user.id]["given"] == 1
-    assert counts[user.id]["received"] == 1
+    assert f'hx-post="/like/{post.id}/unlike"' in resp
+    assert "1 like" in resp
+    assert _counts(resp, moderator_user.id)[0] == 1
+    assert _counts(resp, user.id)[1] == 1
 
 
-def test_unlike_post_ajax_returns_the_updated_widget(application, liked_post, user, moderator_user):
-    resp = _unlike(application, liked_post, moderator_user, headers=AJAX)
+def test_unlike_post_htmx_returns_the_updated_widget(application, liked_post, user, moderator_user):
+    resp = _unlike(application, liked_post, moderator_user, headers=HTMX)
 
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert f"/like/{liked_post.id}/like" in data["widget"]
-    assert "0 likes" in data["widget"]
+    assert f'hx-post="/like/{liked_post.id}/like"' in resp
+    assert "0 likes" in resp
+    assert _counts(resp, moderator_user.id)[0] == 0
+    assert _counts(resp, user.id)[1] == 0
 
-    counts = {entry["user_id"]: entry for entry in data["counts"]}
-    assert counts[moderator_user.id]["given"] == 0
-    assert counts[user.id]["received"] == 0
+
+def test_htmx_like_of_an_already_liked_post_returns_its_current_state(
+    application, liked_post, moderator_user
+):
+    """Liked from somewhere else in the meantime - the widget catches up
+    instead of the request failing silently."""
+    resp = _like(application, liked_post, moderator_user, headers=HTMX)
+
+    assert f'hx-post="/like/{liked_post.id}/unlike"' in resp
+    assert PostLike.count(column=PostLike.post_id) == 1
+
+
+def test_htmx_like_with_an_invalid_token_loads_the_post(application, topic, moderator_user):
+    post = topic.first_post
+    headers = {
+        "HX-Request": "true",
+        "HX-Current-URL": f"http://localhost/topic/{topic.id}-{topic.slug}",
+    }
+
+    view = LikePost.as_view("like")
+    with application.test_request_context(
+        method="POST", path=f"/like/{post.id}/like", headers=headers
+    ):
+        login_user(moderator_user)
+        try:
+            resp = view(post_id=post.id)
+        finally:
+            logout_user()
+
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == f"/post/{post.id}"
+    assert PostLike.count(column=PostLike.post_id) == 0
+
+
+def test_page_counts_are_not_swapped_out_of_band(application, topic, user):
+    with application.test_request_context():
+        html = like.flaskbb_tpl_post_author_info_after(user, topic.first_post)
+
+    assert 'class="like-counts"' in html
+    assert "hx-swap-oob" not in html
 
 
 def test_liked_posts_lists_only_that_users_likes(

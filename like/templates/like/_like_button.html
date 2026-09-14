@@ -22,19 +22,24 @@
     </div>
 
     {% if can_like %}
-    {# No data-bs-toggle="tooltip" here: aurora instantiates its tooltips once
-       on page load and doesn't expose bootstrap to plugin scripts, so a button
-       swapped in by like.js would end up without one. A plain title attribute
-       survives the swap. #}
+    {% set action = url_for('like.unlike_post' if already_liked else 'like.like_post', post_id=post.id) %}
+    {# swaps this widget through htmx. Every swap attribute is set here, because
+       the post menu sits inside the topic page's element that sets the swap
+       targets of its moderation actions. #}
     <form class="d-inline"
-          data-like-form
           method="post"
-          action="{{ url_for('like.unlike_post' if already_liked else 'like.like_post', post_id=post.id) }}">
+          action="{{ action }}"
+          hx-post="{{ action }}"
+          hx-target="closest .like-widget"
+          hx-select="unset"
+          hx-swap="outerHTML"
+          hx-select-oob="unset"
+          hx-disabled-elt="find button">
         {{ form.hidden_tag() }}
         {% if already_liked %}
-        <button type="submit" class="btn btn-icon fas fa-heart text-red" title="{{ _('Withdraw like') }}" aria-label="{{ _('Withdraw like') }}"></button>
+        <button type="submit" class="btn btn-icon fas fa-heart text-red" data-bs-toggle="tooltip" title="{{ _('Withdraw like') }}" aria-label="{{ _('Withdraw like') }}"></button>
         {% else %}
-        <button type="submit" class="btn btn-icon far fa-heart text-red" title="{{ _('Like') }}" aria-label="{{ _('Like') }}"></button>
+        <button type="submit" class="btn btn-icon far fa-heart text-red" data-bs-toggle="tooltip" title="{{ _('Like') }}" aria-label="{{ _('Like') }}"></button>
         {% endif %}
     </form>
     {% endif %}

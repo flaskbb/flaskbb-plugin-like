@@ -8,7 +8,7 @@ The views for liking/unliking a post and for a user's liked-posts page.
 :license: BSD License, see LICENSE for more details.
 """
 
-from flask import abort, Blueprint, flash, jsonify, redirect, request
+from flask import abort, Blueprint, flash, redirect, request
 from flask.views import MethodView
 from flask_babelplus import gettext as _
 from flask_login import current_user, login_required
@@ -16,7 +16,13 @@ from flaskbb.extensions import db
 from flaskbb.forum.models import Forum, Post, Topic
 from flaskbb.settings import flaskbb_config
 from flaskbb.user.models import Group, User
-from flaskbb.utils.helpers import real, register_view, render_template
+from flaskbb.utils.helpers import (
+    is_htmx_request,
+    real,
+    redirect_or_reload,
+    register_view,
+    render_template,
+)
 
 from .forms import LikeActionForm
 from .models import PostLike
@@ -29,43 +35,28 @@ from .utils import (
     unlike_post,
 )
 
-like_bp = Blueprint("like", __name__, template_folder="templates", static_folder="static")
-
-
-def _is_ajax() -> bool:
-    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
-
-def _counts_for(user: User) -> dict[str, int]:
-    return {
-        "user_id": user.id,
-        "given": likes_given_count(user),
-        "received": likes_received_count(user),
-    }
+like_bp = Blueprint("like", __name__, template_folder="templates")
 
 
 def _like_state(post: Post, user: User):
-    """The re-rendered like widget plus the counters the (un)like changed.
+    """The re-rendered like widget, plus the like counts the (un)like changed
+    as out-of-band swaps - they live in the post author sidebar, a different
+    part of the page from the widget, and possibly in several places at once
+    if the same user has more than one post on it.
 
     Both counters are read after ``like_post``/``unlike_post`` committed, so
     the values the after_insert/after_delete events wrote are already visible.
-    They are sent as numbers rather than markup because they live in the post
-    author sidebar - a different part of the page from the widget, and
-    possibly in several places at once if the same user has more than one post
-    on it.
     """
-    counts = [_counts_for(user)]
+    users = [user]
     if post.user is not None and post.user != user:
-        counts.append(_counts_for(post.user))
-    return jsonify(
-        widget=render_template(
-            "like/_like_button.html",
-            post=post,
-            can_like=can_like_post(user, post),
-            already_liked=has_liked(user, post),
-            form=LikeActionForm(),
-        ),
-        counts=counts,
+        users.append(post.user)
+    return render_template(
+        "like/_like_state.html",
+        post=post,
+        can_like=can_like_post(user, post),
+        already_liked=has_liked(user, post),
+        form=LikeActionForm(),
+        counts=[(u, likes_given_count(u), likes_received_count(u)) for u in users],
     )
 
 
@@ -79,13 +70,17 @@ class LikePost(MethodView):
         form = LikeActionForm()
         if not form.validate_on_submit():
             flash(_("Could not verify the like request, please try again."), "danger")
-            return redirect(post.url)
+            # a full page load for htmx too, where the flashed message shows
+            return redirect_or_reload(post.url)
 
         if has_liked(user, post) or not can_like_post(user, post):
+            # liked from somewhere else in the meantime - the widget catches up
+            if is_htmx_request():
+                return _like_state(post, user)
             abort(403)
 
         like_post(user, post)
-        if _is_ajax():
+        if is_htmx_request():
             return _like_state(post, user)
         return redirect(post.url)
 
@@ -100,13 +95,17 @@ class UnlikePost(MethodView):
         form = LikeActionForm()
         if not form.validate_on_submit():
             flash(_("Could not verify the like request, please try again."), "danger")
-            return redirect(post.url)
+            # a full page load for htmx too, where the flashed message shows
+            return redirect_or_reload(post.url)
 
         if not has_liked(user, post):
+            # unliked from somewhere else in the meantime - the widget catches up
+            if is_htmx_request():
+                return _like_state(post, user)
             abort(403)
 
         unlike_post(user, post)
-        if _is_ajax():
+        if is_htmx_request():
             return _like_state(post, user)
         return redirect(post.url)
 

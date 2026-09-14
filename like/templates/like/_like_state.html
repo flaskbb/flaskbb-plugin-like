@@ -1,0 +1,8 @@
+{# the htmx response to a (un)like: the widget in place of the old one, and the
+   like counts of everyone it changed as out-of-band swaps #}
+{% include "like/_like_button.html" %}
+{% for counts_user, likes_given, likes_received in counts %}
+{% with user=counts_user, likes_given=likes_given, likes_received=likes_received, oob=True %}
+{% include "like/_like_counts.html" %}
+{% endwith %}
+{% endfor %}
