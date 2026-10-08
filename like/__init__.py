@@ -31,8 +31,6 @@ from .utils import (
 )
 from .views import like_bp
 
-__version__ = "1.0.0"
-
 hookimpl = HookimplMarker("flaskbb")
 
 
