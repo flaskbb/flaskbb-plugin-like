@@ -1,0 +1,6 @@
+{# the body of the likers modal, see _like_button.html #}
+{% for liker in likers %}
+<div><a href="{{ liker.url }}">{{ liker.username }}</a></div>
+{% else %}
+<div>{{ _("No likes yet") }}</div>
+{% endfor %}

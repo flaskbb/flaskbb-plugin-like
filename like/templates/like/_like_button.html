@@ -1,6 +1,19 @@
 {% set likes = post.likers | length %}
 <div class="like-widget d-inline" data-post-id="{{ post.id }}">
-    <a href="#" data-bs-toggle="modal" data-bs-target="#likers-post-{{ post.id }}">
+    {# the likers are fetched when the modal opens, so a page of posts never
+       loads them. Every swap attribute is set here, because the post menu
+       sits inside the topic page's element that sets the swap targets of
+       its moderation actions. #}
+    <a href="#"
+       data-bs-toggle="modal"
+       data-bs-target="#likers-post-{{ post.id }}"
+       {% if likes %}
+       hx-get="{{ url_for('like.post_likers', post_id=post.id) }}"
+       hx-target="#likers-post-{{ post.id }} .modal-body"
+       hx-select="unset"
+       hx-swap="innerHTML"
+       hx-select-oob="unset"
+       {% endif %}>
         <small>{{ _("%(count)s like%(plural)s", count=likes, plural="" if likes == 1 else "s") }}</small>
     </a>
     <div class="modal fade" id="likers-post-{{ post.id }}" tabindex="-1" aria-hidden="true">
@@ -11,11 +24,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    {% for liker in post.likers %}
-                    <div><a href="{{ liker.url }}">{{ liker.username }}</a></div>
+                    {% if likes %}
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">{{ _("Loading...") }}</span>
+                    </div>
                     {% else %}
                     <div>{{ _("No likes yet") }}</div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>

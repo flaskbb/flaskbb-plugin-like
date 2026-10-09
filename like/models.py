@@ -29,24 +29,28 @@ class PostLike(BaseModel):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
 
-    # Both sides load via `selectin`, never `joined` - see
+    # The backref loads via `selectin`, never `joined` - see
     # https://github.com/flaskbb/flaskbb/issues/503. `joined` folds into
     # whatever query loads a Post/User, including flaskbb's own hand-built
     # outerjoin in Topic.get_posts, and corrupts its column layout.
     # `selectin` always runs as its own separate, batched query instead, so
-    # it can chain (post -> liked_by_users -> user) without ever touching a
-    # query this plugin doesn't own.
+    # every post on a page gets its like rows in one query this plugin owns.
+    #
+    # The liker itself stays lazy: the topic page only needs the user ids
+    # (count, has the viewer liked it), and the list of names behind the
+    # likers modal is fetched on demand through utils.post_likers.
     post: Mapped["Post"] = relationship(
         "Post",
         backref=db.backref("liked_by_users", lazy="selectin", cascade="all, delete-orphan"),
     )
     user: Mapped["User"] = relationship(
         "User",
-        lazy="selectin",
         backref=db.backref("user_liked_posts", cascade="all, delete-orphan"),
     )
 
 
+# Loads one liker per like row - fine for a single post, not for a page of
+# them; those go through utils.post_likers.
 Post.likers = association_proxy(
     "liked_by_users",
     "user",
@@ -78,8 +82,14 @@ if TYPE_CHECKING:
         likes_given: int = 0
         likes_received: int = 0
 
+    class LikePost(Post):
+        """A ``Post`` with the ``liked_by_users`` backref added above."""
+
+        liked_by_users: list[PostLike] = []
+
 else:
     LikeUser = User
+    LikePost = Post
 
 
 def _apply_delta(connection: Connection, like: PostLike, delta: int) -> None:

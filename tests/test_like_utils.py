@@ -144,6 +144,28 @@ def test_like_counts_cost_no_extra_queries(request_context, topic, moderator_use
     assert queries == []
 
 
+def test_has_liked_costs_no_query_once_the_post_is_loaded(liked_post, user, moderator_user):
+    """The topic page calls has_liked once per post. The like rows come
+    with the batched load every page of posts already does, so none of
+    those calls may query on its own."""
+    _ = (moderator_user.id, user.id)  # force any cross-context lazy-refresh
+    post = Post.get(Post.id == liked_post.id)
+
+    queries = []
+
+    def _count(conn, cursor, statement, parameters, context, executemany):
+        queries.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", _count)
+    try:
+        assert has_liked(moderator_user, post) is True
+        assert has_liked(user, post) is False
+    finally:
+        event.remove(db.engine, "before_cursor_execute", _count)
+
+    assert queries == []
+
+
 def test_recalculate_like_counts_repairs_drift(liked_post, user, moderator_user):
     # Simulated drift: a raw delete bypasses the ORM events that keep the
     # counters in sync.

@@ -3,12 +3,12 @@ from contextlib import contextmanager
 
 import pytest
 from flask_login import login_user, logout_user
-from flaskbb.forum.models import Post
+from flaskbb.forum.models import Forum, Post, Topic
 from werkzeug.exceptions import Forbidden
 
 import like
 from like.models import PostLike
-from like.views import LikedPosts, LikePost, UnlikePost
+from like.views import LikedPosts, LikePost, PostLikers, UnlikePost
 
 
 @contextmanager
@@ -168,6 +168,67 @@ def test_htmx_like_with_an_invalid_token_loads_the_post(application, topic, mode
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == f"/post/{post.id}"
     assert PostLike.count(column=PostLike.post_id) == 0
+
+
+def test_like_button_fetches_the_likers_on_demand(application, topic, liked_post, moderator_user):
+    """A page of posts renders a widget per post without loading a single
+    liker; the modal gets them from like.post_likers when it opens."""
+    with application.test_request_context():
+        login_user(moderator_user)
+        try:
+            with_likes = like.flaskbb_tpl_post_menu_before(liked_post)
+            without_likes = like.flaskbb_tpl_post_menu_before(topic.first_post)
+        finally:
+            logout_user()
+
+    assert f'hx-get="/like/{liked_post.id}/likers"' in with_likes
+    assert moderator_user.username not in with_likes
+    assert "hx-get" not in without_likes
+    assert "No likes yet" in without_likes
+
+
+def _get_likers(application, post, user=None):
+    view = PostLikers.as_view("likers")
+    with application.test_request_context(path=f"/like/{post.id}/likers"):
+        if user is not None:
+            login_user(user)
+        try:
+            return view(post_id=post.id)
+        finally:
+            if user is not None:
+                logout_user()
+
+
+def test_post_likers_lists_who_liked_the_post(application, liked_post, moderator_user, admin_user):
+    resp = _get_likers(application, liked_post, admin_user)
+
+    assert f">{moderator_user.username}<" in resp
+    assert admin_user.username not in resp
+
+
+def test_post_likers_without_likes(application, topic, admin_user):
+    resp = _get_likers(application, topic.first_post, admin_user)
+
+    assert "No likes yet" in resp
+
+
+def test_post_likers_allows_guests(application, liked_post, moderator_user):
+    resp = _get_likers(application, liked_post)
+
+    assert f">{moderator_user.username}<" in resp
+
+
+def test_post_likers_rejects_a_forum_the_viewer_cannot_access(
+    application, category, default_groups, user, moderator_user
+):
+    # Member only, see test_can_like_post_rejects_user_outside_the_forums_groups
+    member_only_forum = Forum(title="Members Only", category_id=category.id)
+    member_only_forum.save(groups=[default_groups[3]])
+    other_topic = Topic(title="Members only topic")
+    other_topic.save(forum=member_only_forum, user=user, post=Post(content="Members only content"))
+
+    with pytest.raises(Forbidden):
+        _get_likers(application, other_topic.first_post, moderator_user)
 
 
 def test_page_counts_are_not_swapped_out_of_band(application, topic, user):

@@ -8,15 +8,17 @@ Helpers for liking/unliking a post and for counting a user's likes.
 :license: BSD License, see LICENSE for more details.
 """
 
+from collections.abc import Sequence
 from typing import cast
 
 from flaskbb.extensions import db
 from flaskbb.forum.models import Post
+from flaskbb.permissions import permission_manager
 from flaskbb.settings import flaskbb_config
 from flaskbb.user.models import User
 from sqlalchemy import func
 
-from .models import LikeUser, PostLike
+from .models import LikePost, LikeUser, PostLike
 
 DEFAULT_ALLOW_SELF_LIKE = False
 
@@ -41,24 +43,41 @@ def can_like_post(user: User, post: Post) -> bool:
         return False
     if not allow_self_like() and post.user == user:
         return False
-    forum_group_ids = {group.id for group in topic.forum.groups}
-    user_group_ids = {group.id for group in user.groups}
-    return bool(forum_group_ids & user_group_ids)
+    return permission_manager.for_user(user).can_access(topic.forum)
 
 
 def like_post(user: User, post: Post) -> None:
     PostLike(post_id=post.id, user_id=user.id).save()
 
 
+def _find_like(user: User, post: Post) -> PostLike | None:
+    # liked_by_users is batch-loaded for every Post a page loads (see
+    # models.py), so this never costs a query of its own
+    likes = cast(LikePost, post).liked_by_users
+    return next((like for like in likes if like.user_id == user.id), None)
+
+
 def unlike_post(user: User, post: Post) -> None:
-    like = PostLike.get(PostLike.post_id == post.id, PostLike.user_id == user.id)
+    like = _find_like(user, post)
     if like is not None:
         like.delete()
 
 
 def has_liked(user: User, post: Post) -> bool:
-    like = PostLike.get(PostLike.post_id == post.id, PostLike.user_id == user.id)
-    return like is not None
+    return _find_like(user, post) is not None
+
+
+def post_likers(post: Post) -> Sequence[User]:
+    return (
+        db.session.execute(
+            db.select(User)
+            .join(PostLike, PostLike.user_id == User.id)
+            .where(PostLike.post_id == post.id)
+            .order_by(User.username)
+        )
+        .scalars()
+        .all()
+    )
 
 
 def likes_given_count(user: User) -> int:

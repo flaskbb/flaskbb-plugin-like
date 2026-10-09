@@ -14,6 +14,7 @@ from flask_babelplus import gettext as _
 from flask_login import current_user, login_required
 from flaskbb.extensions import db
 from flaskbb.forum.models import Forum, Post, Topic
+from flaskbb.permissions import permission_manager
 from flaskbb.settings import flaskbb_config
 from flaskbb.user.models import Group, User
 from flaskbb.utils.helpers import (
@@ -23,6 +24,8 @@ from flaskbb.utils.helpers import (
     register_view,
     render_template,
 )
+from flaskbb.utils.queries import first_or_404
+from sqlalchemy.orm import contains_eager
 
 from .forms import LikeActionForm
 from .models import PostLike
@@ -32,6 +35,7 @@ from .utils import (
     like_post,
     likes_given_count,
     likes_received_count,
+    post_likers,
     unlike_post,
 )
 
@@ -110,6 +114,19 @@ class UnlikePost(MethodView):
         return redirect(post.url)
 
 
+class PostLikers(MethodView):
+    """The body of the likers modal, fetched when it opens."""
+
+    def get(self, post_id: int):
+        post = first_or_404(db.select(Post).where(Post.id == post_id), True)
+        topic = post.topic
+        if topic is None or not permission_manager.for_user(real(current_user)).can_access(
+            topic.forum
+        ):
+            abort(403)
+        return render_template("like/_likers.html", likers=post_likers(post))
+
+
 class LikedPosts(MethodView):
     def get(self, username: str):
         page = request.args.get("page", 1, type=int)
@@ -126,6 +143,7 @@ class LikedPosts(MethodView):
                 PostLike.user_id == user.id,
                 Forum.groups.any(Group.id.in_(group_ids)),
             )
+            .options(contains_eager(Post.topic).contains_eager(Topic.forum))
             .order_by(Post.id.desc())
         )
         posts = db.paginate(stmt, page=page, per_page=flaskbb_config["POSTS_PER_PAGE"])
@@ -137,6 +155,11 @@ register_view(
     like_bp,
     routes=["/<int:post_id>/unlike"],
     view_func=UnlikePost.as_view("unlike_post"),
+)
+register_view(
+    like_bp,
+    routes=["/<int:post_id>/likers"],
+    view_func=PostLikers.as_view("post_likers"),
 )
 register_view(
     like_bp,

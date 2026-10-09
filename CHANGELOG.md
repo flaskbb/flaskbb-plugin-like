@@ -3,6 +3,13 @@ Changelog
 
 Here you can see the full list of changes between each release.
 
+Version 1.1.0
+-------------
+
+Unreleased
+
+* Performance improvements
+
 Version 1.0.0
 -------------
 
