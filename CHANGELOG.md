@@ -3,6 +3,14 @@ Changelog
 
 Here you can see the full list of changes between each release.
 
+Version 1.0.2
+-------------
+
+Released on October 14th, 2026
+
+* Update test fixture
+
+
 Version 1.1.0
 -------------
 
